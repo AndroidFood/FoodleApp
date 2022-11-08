@@ -19,6 +19,9 @@ import com.afollestad.materialdialogs.customview.customView
 import com.codepath.foodlecodepath.databinding.ActivityMainBinding
 import com.google.firebase.firestore.ktx.firestore
 import com.google.firebase.ktx.Firebase
+import com.google.mlkit.vision.common.InputImage
+import com.google.mlkit.vision.text.TextRecognition
+import com.google.mlkit.vision.text.latin.TextRecognizerOptions
 import java.text.SimpleDateFormat
 import java.util.*
 import java.util.concurrent.ExecutorService
@@ -50,6 +53,7 @@ class MainActivity : AppCompatActivity() {
 
         cameraExecutor = Executors.newSingleThreadExecutor()
 
+
     }
 
     private fun startCamera() {
@@ -71,6 +75,8 @@ class MainActivity : AppCompatActivity() {
 
 
             val imageAnalyzer = ImageAnalysis.Builder()
+                .setBackpressureStrategy(ImageAnalysis.STRATEGY_BLOCK_PRODUCER)
+                .setImageQueueDepth(1)
                 .build()
                 .also {
                     it.setAnalyzer(cameraExecutor, YourImageAnalyzer())
@@ -99,6 +105,39 @@ class MainActivity : AppCompatActivity() {
         override fun analyze(imageProxy: ImageProxy) {
             val mediaImage = imageProxy.image
             if (mediaImage != null) {
+                val image = InputImage.fromMediaImage(mediaImage, imageProxy.imageInfo.rotationDegrees)
+
+                val recognizer = TextRecognition.getClient(TextRecognizerOptions.DEFAULT_OPTIONS)
+
+                Log.d("TAG", "analyze: success")
+                val result = recognizer.process(image)
+                    .addOnSuccessListener { result->
+                        Log.d("kir", "analyze: kirdi")
+
+                        for (block in result.textBlocks) {
+                            val blockText = block.text
+                            val blockCornerPoints = block.cornerPoints
+                            val blockFrame = block.boundingBox
+                            for (line in block.lines) {
+                                val lineText = line.text
+                                val lineCornerPoints = line.cornerPoints
+                                val lineFrame = line.boundingBox
+                                for (element in line.elements) {
+                                    val elementText = element.text
+                                    val elementCornerPoints = element.cornerPoints
+                                    val elementFrame = element.boundingBox
+                                    Log.d("TAG", "analyze element: ${element.text}")
+                                }
+                            }
+                        }
+                    }
+                    .addOnFailureListener {
+                        Log.d("TAG", "analyze: failure")
+
+                    }
+                    .addOnCompleteListener {
+                        imageProxy.close()
+                    }
 
             }
         }
